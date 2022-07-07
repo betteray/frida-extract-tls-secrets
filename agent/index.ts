@@ -1,22 +1,35 @@
 import { log } from "./logger";
 
-const header = Memory.alloc(16);
-header
-    .writeU32(0xdeadbeef).add(4)
-    .writeU32(0xd00ff00d).add(4)
-    .writeU64(uint64("0x1122334455667788"));
-log(hexdump(header.readByteArray(16) as ArrayBuffer, { ansi: true }));
+function startTLSKeyLogger(SSL_CTX_new: NativePointer, SSL_CTX_set_keylog_callback: NativePointer) {
+    const SSL_CTX_set_keylog_callback_function = new NativeFunction(
+        SSL_CTX_set_keylog_callback,
+        "void",
+        ["pointer", "pointer"]
+    );
 
-Process.getModuleByName("libSystem.B.dylib")
-    .enumerateExports()
-    .slice(0, 16)
-    .forEach((exp, index) => {
-        log(`export ${index}: ${exp.name}`);
+    const key_log_callback = new NativeCallback((ssl: NativePointer, line: NativePointer) => {
+        let key_log_line = line.readUtf8String();
+        log("ssl: " + ssl + ", line: " + key_log_line);
+
+    }, "void", ["pointer", "pointer"]);
+
+    Interceptor.attach(SSL_CTX_new, {
+        onEnter(args) {
+            log("onEnter SSL_CTX_new");
+        },
+        onLeave(retVal) {
+            log("onLeave SSL_CTX_new: " + retVal);
+            SSL_CTX_set_keylog_callback_function(retVal, key_log_callback);
+        }
     });
+}
 
-Interceptor.attach(Module.getExportByName(null, "open"), {
-    onEnter(args) {
-        const path = args[0].readUtf8String();
-        log(`open() path="${path}"`);
-    }
-});
+const m = Process.findModuleByName("libssl.so");
+
+const SSL_CTX_new = m!.findExportByName("SSL_CTX_new");
+const SSL_CTX_set_keylog_callback = m!.findExportByName("SSL_CTX_set_keylog_callback");
+
+log("Module.onLoad SSL_CTX_new: " + SSL_CTX_new);
+log("Module.onLoad SSL_CTX_set_keylog_callback: " + SSL_CTX_set_keylog_callback);
+
+startTLSKeyLogger(SSL_CTX_new!, SSL_CTX_set_keylog_callback!);

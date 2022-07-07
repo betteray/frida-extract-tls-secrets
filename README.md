@@ -1,10 +1,14 @@
+# frida-extract-tls-secrets
+
+Frida script for dump ssl key log.
+
 ### How to compile & load
 
 ```sh
-$ git clone git://github.com/oleavr/frida-agent-example.git
-$ cd frida-agent-example/
+$ git clone git://github.com/betteray/frida-extract-tls-secrets.git
+$ cd frida-extract-tls-secrets/
 $ npm install
-$ frida -U -f com.example.android --no-pause -l _agent.js
+$ frida -U -f com.viber.voip --no-pause -l _agent.js
 ```
 
 ### Development workflow
